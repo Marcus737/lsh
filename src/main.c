@@ -255,6 +255,7 @@ void lsh_loop(void)
 
   do {
     printf("> ");
+	fflush(stdout);
     line = lsh_read_line();
     args = lsh_split_line(line);
     status = lsh_execute(args);
