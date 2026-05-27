@@ -1,55 +1,31 @@
-name: Build lsh
+name: Build lsh static
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
     branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          # Linux x86_64
-          - os: ubuntu-latest
-            arch: x86_64
-            cc: gcc
-            output: lsh-linux-x64
-
-          # Linux ARM64 (native runner)
-          - os: ubuntu-24.04-arm
-            arch: aarch64
-            cc: gcc
-            output: lsh-linux-arm64
-
-          # macOS ARM64 (Apple Silicon)
-          - os: macos-latest
-            arch: arm64
-            cc: clang
-            output: lsh-macos-arm64
-
-    runs-on: ${{ matrix.os }}
-
+    runs-on: ubuntu-24.04-arm  # Native ARM64 runner
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile
-        run: ${{ matrix.cc }} -O2 -o ${{ matrix.output }} src/main.c
+      - name: Install musl toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
-      - name: Strip binary
-        run: strip ${{ matrix.output }}
-        if: matrix.os != 'windows-latest'
+      - name: Build static binary
+        run: musl-gcc -static-pie -O2 -o lsh src/main.c
+
+      - name: Verify
+        run: |
+          file lsh
+          ldd lsh || echo "Static binary - no dynamic deps"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lsh-${{ matrix.arch }}
-          path: ${{ matrix.output }}
-
-      - name: Release binary
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.output }}
+          name: lsh-static-arm64
+          path: lsh
